@@ -7,7 +7,7 @@ export function VideoLessonCard({ video, moduleTitle }) {
   return (
     <SectionCard>
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-xl font-extrabold text-ink">Video Lesson</h2>
+        <h2 className="text-xl font-extrabold text-ink">Video Lecture</h2>
         <Youtube className="text-danger" size={24} />
       </div>
       <div className="mt-5 overflow-hidden rounded-[24px] bg-navy shadow-card">

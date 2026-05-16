@@ -15,7 +15,7 @@ const sourceTabs = [
 const helpSteps = [
   "Choose materials or a topic.",
   "Set the level, duration, and goal.",
-  "CorAI creates modules, videos, practice, and quizzes.",
+  "CorAI creates lectures, videos, practice, and quizzes.",
 ];
 
 export function CreateCoursePage() {

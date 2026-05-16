@@ -22,8 +22,8 @@ export function ModuleQuizCard({ course, module, quiz, questions = [], latestAtt
   if (!quiz || !questions.length) {
     return (
       <SectionCard id="module-quiz">
-        <h2 className="text-xl font-extrabold text-ink">Module Quiz</h2>
-        <p className="mt-3 text-sm font-semibold text-muted">This module does not have quiz questions yet.</p>
+        <h2 className="text-xl font-extrabold text-ink">Lecture Quiz</h2>
+        <p className="mt-3 text-sm font-semibold text-muted">This lecture does not have quiz questions yet.</p>
       </SectionCard>
     );
   }
@@ -85,7 +85,7 @@ export function ModuleQuizCard({ course, module, quiz, questions = [], latestAtt
       <SectionCard id="module-quiz">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-extrabold text-ink">Module Quiz Result</h2>
+            <h2 className="text-xl font-extrabold text-ink">Lecture Quiz Result</h2>
             <p className="mt-2 text-sm font-semibold text-muted">{quiz.title}</p>
           </div>
           <span className="flex h-12 w-12 items-center justify-center rounded-[20px] bg-lime text-navy">
@@ -139,7 +139,7 @@ export function ModuleQuizCard({ course, module, quiz, questions = [], latestAtt
 
         <div className="mt-6 flex flex-wrap gap-3">
           <Button variant="outline" onClick={() => setMode("preview")}>
-            Review Module
+            Review Lecture
           </Button>
           <Button variant="peach" onClick={handleRetake}>
             <RotateCcw size={17} />
@@ -154,7 +154,7 @@ export function ModuleQuizCard({ course, module, quiz, questions = [], latestAtt
     <SectionCard id="module-quiz">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h2 className="text-xl font-extrabold text-ink">Module Quiz</h2>
+          <h2 className="text-xl font-extrabold text-ink">Lecture Quiz</h2>
           <p className="mt-2 text-sm font-semibold text-muted">{questions.length} questions on {module.title}</p>
         </div>
         <span className="flex h-12 w-12 items-center justify-center rounded-[20px] bg-lavender text-navy">

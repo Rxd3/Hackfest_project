@@ -41,7 +41,7 @@ export function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <StatsCard value={data.courses.length} label="Courses Generated" icon={GraduationCap} />
-        <StatsCard value={completedModules} label="Lessons Completed" icon={BookOpenCheck} />
+        <StatsCard value={completedModules} label="Lectures Completed" icon={BookOpenCheck} />
         <StatsCard value={`${studyHours}h`} label="Study Hours This Week" icon={BarChart3} chart />
       </div>
 
@@ -101,7 +101,7 @@ function buildRecommendedTasks(data) {
       quizPath: `/courses/${firstCourse.id}/modules/${reviewModule.id}#module-quiz`,
     },
     {
-      type: "Watch Lesson",
+      type: "Watch Lecture",
       title: reviewModule.title,
       course: firstCourse.title,
       date: "Next",

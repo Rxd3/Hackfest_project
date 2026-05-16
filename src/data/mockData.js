@@ -119,7 +119,7 @@ export const recommendedTasks = [
     color: "bg-lavender",
   },
   {
-    type: "Watch Lesson",
+    type: "Watch Lecture",
     title: "Pandas Basics",
     course: "Python for Data Analysis",
     date: "Tomorrow",
@@ -135,11 +135,11 @@ export const recommendedTasks = [
 ];
 
 export const studyWeek = [
-  { day: "Monday", task: "Lesson 1: Networking Basics", meta: "35 min lesson" },
+  { day: "Monday", task: "Lecture 1: Networking Basics", meta: "35 min lecture" },
   { day: "Tuesday", task: "Quiz 1 + Review", meta: "Practice and feedback" },
-  { day: "Wednesday", task: "Lesson 2: IP Addressing", meta: "Video lesson" },
+  { day: "Wednesday", task: "Lecture 2: IP Addressing", meta: "Video lecture" },
   { day: "Thursday", task: "Practice Task", meta: "IP address exercises" },
-  { day: "Friday", task: "Lesson 3: Subnetting", meta: "Needs focus" },
+  { day: "Friday", task: "Lecture 3: Subnetting", meta: "Needs focus" },
   { day: "Saturday", task: "Review Weak Topics", meta: "30 min review" },
   { day: "Sunday", task: "Rest / Catch up", meta: "Flexible session" },
 ];

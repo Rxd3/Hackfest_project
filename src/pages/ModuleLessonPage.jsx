@@ -1,7 +1,6 @@
 import { ArrowLeft, ArrowRight, CheckCircle2, Circle, PlayCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { AskAIBox } from "../components/module/AskAIBox";
 import { ExamplesCard } from "../components/module/ExamplesCard";
 import { ExplanationCard } from "../components/module/ExplanationCard";
 import { KeyConceptsCard } from "../components/module/KeyConceptsCard";
@@ -38,7 +37,7 @@ export function ModuleLessonPage() {
       .loadVideosForModule({ course, module })
       .then((result) => {
         if (!active) return;
-        setVideoStatus(result.videos.length ? "" : "No non-Shorts YouTube videos were found for this lesson.");
+        setVideoStatus(result.videos.length ? "" : "No non-Shorts YouTube videos were found for this lecture.");
       })
       .catch((error) => active && setVideoStatus(error.message))
       .finally(() => active && setVideoLoading(false));
@@ -62,7 +61,7 @@ export function ModuleLessonPage() {
   }
 
   if (!module || !course) {
-    return <p className="soft-card p-6 text-sm font-bold text-muted">Lesson not found.</p>;
+    return <p className="soft-card p-6 text-sm font-bold text-muted">Lecture not found.</p>;
   }
 
   const courseModules = data.getModules(course.id).sort((a, b) => a.position - b.position);
@@ -72,7 +71,7 @@ export function ModuleLessonPage() {
 
   return (
     <div>
-      <PageHeader title={`Lesson ${module.position}: ${module.title}`} subtitle={course.title} />
+      <PageHeader title={`Lecture ${module.position}: ${module.title}`} subtitle={course.title} />
       <div className="mb-6 rounded-[22px] bg-white p-4 shadow-card">
         <div className="mb-2 flex justify-between text-sm font-extrabold text-muted">
           <span>Progress</span>
@@ -82,13 +81,13 @@ export function ModuleLessonPage() {
       </div>
 
       {videoLoading ? (
-        <p className="mb-5 rounded-[20px] bg-navy px-4 py-3 text-sm font-bold text-white">Searching YouTube for this lesson...</p>
+        <p className="mb-5 rounded-[20px] bg-navy px-4 py-3 text-sm font-bold text-white">Searching YouTube for this lecture...</p>
       ) : null}
       {videoStatus ? <p className="mb-5 rounded-[20px] bg-peach px-4 py-3 text-sm font-bold text-navy">{videoStatus}</p> : null}
 
       <div className="space-y-5">
         <VideoLessonCard video={videos[0]} moduleTitle={module.title} />
-        <ExplanationCard explanation={module.explanation} />
+        <ExplanationCard courseId={course.id} moduleId={module.id} moduleTitle={module.title} explanation={module.explanation} />
         <KeyConceptsCard concepts={normalizeArray(module.key_concepts)} />
         <ExamplesCard examples={normalizeArray(module.examples)} />
         <PracticeTaskCard tasks={normalizeArray(module.practice_tasks)} onComplete={markPracticeComplete} />
@@ -122,14 +121,14 @@ function ModuleNavigationCard({ previousModule, nextModule, onPrevious, onNext }
         {previousModule ? (
           <Button variant="outline" onClick={onPrevious}>
             <ArrowLeft size={17} />
-            Previous Module
+            Previous Lecture
           </Button>
         ) : (
           <span />
         )}
         {nextModule ? (
           <Button onClick={onNext}>
-            Next Module
+            Next Lecture
             <ArrowRight size={17} />
           </Button>
         ) : null}
@@ -159,13 +158,13 @@ export function ModuleLessonRightPanel() {
   return (
     <>
       <section className="soft-card p-5">
-        <h2 className="text-lg font-extrabold text-ink">Lesson Progress</h2>
+        <h2 className="text-lg font-extrabold text-ink">Lecture Progress</h2>
         <p className="mt-5 text-5xl font-extrabold text-navy">{module.progress}%</p>
         <ProgressBar value={module.progress} className="mt-4" />
         <div className="mt-5 space-y-3 text-sm font-bold text-muted">
           <p className="flex items-center gap-2">
             <CheckCircle2 size={17} className="text-navy" />
-            Lesson opened
+            Lecture opened
           </p>
           <p className="flex items-center gap-2">
             {module.progress >= 70 ? <CheckCircle2 size={17} className="text-navy" /> : <Circle size={17} />}
@@ -177,9 +176,8 @@ export function ModuleLessonRightPanel() {
           </p>
         </div>
       </section>
-      <AskAIBox courseId={courseId} moduleId={moduleId} />
       <section className="soft-card p-5">
-        <h2 className="text-lg font-extrabold text-ink">Module Quiz</h2>
+        <h2 className="text-lg font-extrabold text-ink">Lecture Quiz</h2>
         <p className="mt-3 text-sm font-semibold leading-6 text-muted">
           {latestAttempt ? `Latest score: ${latestAttempt.score}%` : `Answer ${quiz ? data.getQuestions(quiz.id).length : 0} questions on ${module.title}.`}
         </p>

@@ -68,19 +68,23 @@ export async function generateLocalCourse({ topic, files = [], level, duration, 
 export async function answerLocalQuestion({ message, course, module, lesson, history = [] }) {
   const context = [
     course ? `Course: ${course.title}\n${course.description || ""}` : "",
-    module ? `Module: ${module.title}\n${module.explanation || ""}` : "",
+    module ? `Lecture: ${module.title}\n${module.explanation || ""}` : "",
     lesson?.content || "",
   ]
     .filter(Boolean)
     .join("\n\n");
 
   if (!hasGeminiKey()) {
-    return `Local AI key is not configured yet. Based on the current module context: ${context.slice(0, 500) || "create a course first, then ask again."}`;
+    return buildLocalLectureAnswer({ message, course, module, lesson, reason: "Gemini is not configured yet." });
   }
 
   const prompt = `
 You are CorAI, a concise study assistant.
 Use the course context and answer like a helpful tutor.
+Start directly with the answer. Do not use greetings like "Hey there", "Hi", or "Sure".
+Keep the answer focused on the current lecture only.
+Use short paragraphs and bullet lists when they make the answer easier to scan.
+Avoid markdown tables, decorative headings, and long full-course explanations.
 
 Recent chat:
 ${history.map((item) => `${item.role}: ${item.content}`).join("\n")}
@@ -92,7 +96,67 @@ Student question:
 ${message}
 `;
 
-  return generateGeminiText(prompt);
+  try {
+    return cleanTutorAnswer(await generateGeminiText(prompt));
+  } catch (error) {
+    if (isGeminiKeyError(error)) {
+      return buildLocalLectureAnswer({
+        message,
+        course,
+        module,
+        lesson,
+        reason: "Gemini is unavailable right now.",
+      });
+    }
+
+    throw error;
+  }
+}
+
+function cleanTutorAnswer(answer) {
+  return String(answer || "")
+    .trim()
+    .replace(/^(hey there|hi there|hello there|hey|hi|hello|sure|of course|absolutely)[,!.\s-]+/i, "")
+    .replace(/^(let'?s dive in|let'?s jump in|here'?s|here is)[,!.\s-]+/i, "")
+    .trim();
+}
+
+function buildLocalLectureAnswer({ message, course, module, lesson, reason }) {
+  const moduleTitle = text(module?.title, "this lecture");
+  const courseTitle = text(course?.title || course?.source_label, "this course");
+  const explanation = text(module?.explanation || lesson?.content, "Review the lecture explanation, examples, and practice task for this lecture.");
+  const concepts = stringArray(module?.key_concepts || module?.keyConcepts).slice(0, 5);
+  const examples = stringArray(module?.examples).slice(0, 2);
+  const lowerMessage = message.toLowerCase();
+  const setupNote = reason ? `Using saved lecture notes for now because ${reason}\n\n` : "";
+
+  if (lowerMessage.includes("summar")) {
+    return `${setupNote}${moduleTitle} summary:\n\n- ${explanation}\n${concepts.map((concept) => `- ${concept}`).join("\n")}`;
+  }
+
+  if (lowerMessage.includes("example")) {
+    const exampleText = examples.length ? examples.join(" ") : `Use ${concepts[0] || moduleTitle} in a small, concrete task before moving on.`;
+    return `${setupNote}Example for ${moduleTitle}:\n\n${exampleText}\n\nThis matters because it connects ${courseTitle} theory to something you can actually practice.`;
+  }
+
+  if (lowerMessage.includes("simpl") || lowerMessage.includes("beginner")) {
+    return `${setupNote}In simple words, ${moduleTitle} is about this:\n\n${explanation}\n\nStart with ${concepts[0] || "the main idea"}, connect it to one small example, then do the practice task.`;
+  }
+
+  return `${setupNote}For ${moduleTitle}:\n\n${explanation}\n\nUseful focus areas:\n${concepts.length ? concepts.map((concept) => `- ${concept}`).join("\n") : "- The lecture explanation\n- The examples\n- The practice task"}`;
+}
+
+function isGeminiKeyError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    message.includes("api key") ||
+    message.includes("apikey") ||
+    message.includes("expired") ||
+    message.includes("invalid") ||
+    message.includes("permission_denied") ||
+    message.includes("unauthorized") ||
+    message.includes("forbidden")
+  );
 }
 
 export function buildModuleVideoSearchProfile({ course, module }) {
@@ -120,7 +184,7 @@ export function improveStoredModuleForCourse({ course, module }) {
   const modulePosition = number(module?.position || module?.number, 1, 1, 99);
   const keyConcepts = stringArray(module?.key_concepts || module?.keyConcepts).slice(0, 8);
   const title = repairModuleTitle({
-    title: text(module?.title, `Module ${modulePosition}`),
+    title: text(module?.title, `Lecture ${modulePosition}`),
     courseTitle: course?.title || course?.source_label || "Generated Course",
     keyConcepts,
     index: modulePosition - 1,
@@ -219,15 +283,15 @@ Return only valid JSON:
   "learningOutcomes": ["outcome"],
   "modules": [
     {
-      "title": "Module title",
+      "title": "Lecture title",
       "summary": "Short summary",
       "explanation": "Clear teaching explanation in 1-3 paragraphs",
       "keyConcepts": ["concept"],
       "examples": ["example"],
       "practiceTasks": ["task"],
       "estimatedMinutes": 35,
-      "videoSearchQuery": "Specific YouTube search phrase for this exact module only",
-      "videoKeywords": ["module keyword"],
+      "videoSearchQuery": "Specific YouTube search phrase for this exact lecture only",
+      "videoKeywords": ["lecture keyword"],
       "quiz": {
         "title": "Quiz title",
         "questions": [
@@ -245,19 +309,19 @@ Return only valid JSON:
 }
 
 Rules:
-- Create 4 to 6 modules.
-- Module titles must be concrete lesson sections in the real course order, such as "Python Setup and First Program" or "Variables, Data Types, and Operators".
-- Do not use generic module titles like Introduction, Foundations, Core Concepts, Practice, Review, Overview, or Basics by themselves.
-- Make modules distinct and sequential; each module should teach one clear part of the course and should not repeat the course title alone.
-- videoSearchQuery must target only that module, not the full course. For the first module, prefer a beginner search phrase for the exact first section.
+- Create 4 to 6 lectures in the modules array.
+- Lecture titles must be concrete sections in the real course order, such as "Python Setup and First Program" or "Variables, Data Types, and Operators".
+- Do not use generic lecture titles like Introduction, Foundations, Core Concepts, Practice, Review, Overview, or Basics by themselves.
+- Make lectures distinct and sequential; each lecture should teach one clear part of the course and should not repeat the course title alone.
+- videoSearchQuery must target only that lecture, not the full course. For the first lecture, prefer a beginner search phrase for the exact first section.
 - Do not use full course, complete course, crash course, masterclass, playlist, or all-in-one in videoSearchQuery.
 - videoSearchQuery must not ask for Shorts.
-- Create exactly 5 quiz questions per module.
-- Quiz questions must test only that module's title and keyConcepts.
-- Every module quiz must have varied prompts; do not repeat the same wording across questions.
+- Create exactly 5 quiz questions per lecture.
+- Quiz questions must test only that lecture's title and keyConcepts.
+- Every lecture quiz must have varied prompts; do not repeat the same wording across questions.
 - Wrong answers must be plausible misconceptions, not obvious placeholders.
 - Do not use generic answers like "Option 1", "unrelated to the course", "cannot be practiced", or "only means memorizing terms".
-- Each question topic must be a concrete weak-topic label from that module, not the whole course.
+- Each question topic must be a concrete weak-topic label from that lecture, not the whole course.
 - Every question has exactly 4 options and a zero-based correctOptionIndex.
 `;
 
@@ -350,7 +414,7 @@ function fallbackCourse({ topic, materialText, level, duration, goal }) {
     modules: modules.map((module, index) => ({
       title: module.title,
       summary: module.summary,
-      explanation: `${module.title} is a focused part of ${title}. Study ${module.keyConcepts.slice(0, 3).join(", ")} through clear examples before moving to the quiz.`,
+      explanation: `${module.title} is a focused lecture in ${title}. Study ${module.keyConcepts.slice(0, 3).join(", ")} through clear examples before moving to the quiz.`,
       keyConcepts: module.keyConcepts,
       examples: module.examples,
       practiceTasks: module.practiceTasks,
@@ -382,7 +446,7 @@ function normalizeCourse(course) {
 }
 
 function normalizeModule(module, index, courseTitle = "Generated Course") {
-  const originalTitle = text(module?.title, `Module ${index + 1}`);
+  const originalTitle = text(module?.title, `Lecture ${index + 1}`);
   const keyConcepts = stringArray(module?.keyConcepts).slice(0, 8);
   const title = repairModuleTitle({ title: originalTitle, courseTitle, keyConcepts, index });
   const questions = normalizeModuleQuestions({
@@ -396,7 +460,7 @@ function normalizeModule(module, index, courseTitle = "Generated Course") {
   return {
     title,
     summary: text(module?.summary, `Learn ${title}.`),
-    explanation: text(module?.explanation, `This module explains ${title} with concise examples and practice.`),
+    explanation: text(module?.explanation, `This lecture explains ${title} with concise examples and practice.`),
     keyConcepts,
     examples: stringArray(module?.examples).slice(0, 5),
     practiceTasks: stringArray(module?.practiceTasks).slice(0, 5),
@@ -414,7 +478,7 @@ function normalizeModule(module, index, courseTitle = "Generated Course") {
 }
 
 export function buildModuleQuizQuestions({ courseTitle = "Course", moduleTitle, keyConcepts = [] }) {
-  const title = cleanSearchText(moduleTitle || "this module");
+  const title = cleanSearchText(moduleTitle || "this lecture");
   const concepts = uniqueStrings([...keyConcepts, ...tokenizeSearchText(title)]).slice(0, 5);
   while (concepts.length < 5) {
     concepts.push(`${title} concept ${concepts.length + 1}`);
@@ -437,7 +501,7 @@ export function buildModuleQuizQuestions({ courseTitle = "Course", moduleTitle, 
     {
       prompt: `Which example best shows ${second} being used correctly?`,
       options: [
-        `Using ${second} to solve a small, focused problem from the module.`,
+        `Using ${second} to solve a small, focused problem from the lecture.`,
         `Choosing ${second} randomly before knowing the problem.`,
         `Avoiding ${second} because practice makes mistakes visible.`,
         `Using ${second} only as a word to memorize for the quiz.`,
@@ -450,7 +514,7 @@ export function buildModuleQuizQuestions({ courseTitle = "Course", moduleTitle, 
       options: [
         `Applying the idea without checking how it fits the current step.`,
         `Writing a small test example before moving forward.`,
-        `Reading the module explanation before attempting practice.`,
+        `Reading the lecture explanation before attempting practice.`,
         `Comparing your answer with the expected behavior.`,
       ],
       explanation: `${third} is easier to use correctly when you connect it to the current step and verify the result.`,
@@ -461,7 +525,7 @@ export function buildModuleQuizQuestions({ courseTitle = "Course", moduleTitle, 
       options: [
         `When to use it, what it does, and one simple example.`,
         `Only the spelling of the term.`,
-        `Why it has no relationship to the module practice.`,
+        `Why it has no relationship to the lecture practice.`,
         `Why examples should be avoided until the final project.`,
       ],
       explanation: `A useful understanding of ${fourth} includes purpose, timing, and a short example.`,
@@ -472,8 +536,8 @@ export function buildModuleQuizQuestions({ courseTitle = "Course", moduleTitle, 
       options: [
         `Build a small example, predict the result, then check and explain it.`,
         `Copy a final answer without running or reviewing it.`,
-        `Move to a new module without trying an example.`,
-        `Memorize the course title instead of practicing the module skill.`,
+        `Move to a new lecture without trying an example.`,
+        `Memorize the course title instead of practicing the lecture skill.`,
       ],
       explanation: `${fifth} becomes stronger through prediction, practice, checking, and explanation.`,
       topic: fifth,
@@ -491,7 +555,7 @@ export function buildModuleQuizQuestions({ courseTitle = "Course", moduleTitle, 
 
 export function improveStoredQuestionsForModule({ course, module, questions = [] }) {
   const keyConcepts = stringArray(module?.key_concepts || module?.keyConcepts);
-  const moduleTitle = cleanSearchText(module?.title || "Module");
+  const moduleTitle = cleanSearchText(module?.title || "Lecture");
   const normalized = [...questions]
     .sort((a, b) => (a.position || 0) - (b.position || 0))
     .slice(0, 5)
@@ -545,7 +609,7 @@ function normalizeQuestion(question, topic) {
     prompt: text(question?.prompt, `Question about ${topic}`),
     options,
     correctOptionIndex: number(question?.correctOptionIndex ?? question?.correct_option_index, 0, 0, 3),
-    explanation: text(question?.explanation, "Review the related lesson section for the explanation."),
+    explanation: text(question?.explanation, "Review the related lecture section for the explanation."),
     topic: text(question?.topic, topic),
   };
 }
@@ -714,7 +778,7 @@ function repairModuleTitle({ title, courseTitle, keyConcepts = [], index }) {
     return `${firstConcept} in ${courseSubject}`;
   }
 
-  return `${courseSubject} Module ${index + 1}`;
+  return `${courseSubject} Lecture ${index + 1}`;
 }
 
 function buildModuleVideoSearchQuery({ courseTitle, moduleTitle, modulePosition = 1, keyConcepts = [] }) {
