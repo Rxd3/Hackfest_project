@@ -1,16 +1,6 @@
 import { Check, Circle, Flag, Play, RotateCcw } from "lucide-react";
 import { cn } from "../../lib/classNames";
 
-const roadmap = [
-  { label: "Start", status: "completed", Icon: Check },
-  { label: "Module 1: Networking Basics", status: "completed", Icon: Check },
-  { label: "Module 2: IP Addressing", status: "in progress", Icon: Play },
-  { label: "Module 3: Subnetting", status: "needs review", Icon: RotateCcw },
-  { label: "Module 4: Routing", status: "not started", Icon: Circle },
-  { label: "Module 5: Switching", status: "not started", Icon: Circle },
-  { label: "Final Quiz", status: "not started", Icon: Flag },
-];
-
 const styles = {
   completed: "bg-navy text-white border-navy",
   "in progress": "bg-peach text-navy border-peach",
@@ -18,7 +8,17 @@ const styles = {
   "not started": "bg-white text-muted border-divider",
 };
 
-export function CourseRoadmap() {
+export function CourseRoadmap({ modules = [] }) {
+  const roadmap = [
+    { label: "Start", status: modules.some((module) => module.progress > 0) ? "completed" : "not started", Icon: Check },
+    ...modules.map((module) => ({
+      label: `Module ${module.position}: ${module.title}`,
+      status: module.status,
+      Icon: module.status === "completed" ? Check : module.status === "in progress" ? Play : module.status === "needs review" ? RotateCcw : Circle,
+    })),
+    { label: "Final Quiz", status: modules.every((module) => module.status === "completed") && modules.length ? "in progress" : "not started", Icon: Flag },
+  ];
+
   return (
     <section className="soft-card p-5 sm:p-6">
       <h2 className="text-xl font-extrabold text-ink">Course Roadmap</h2>

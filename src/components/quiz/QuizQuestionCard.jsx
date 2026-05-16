@@ -1,23 +1,32 @@
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
-import { quizQuestion } from "../../data/mockData";
 import { cn } from "../../lib/classNames";
 import { Button } from "../ui/Button";
 import { SectionCard } from "../ui/SectionCard";
 
 const letters = ["A", "B", "C", "D"];
 
-export function QuizQuestionCard({ selectedOption, onSelect, onSubmit }) {
+export function QuizQuestionCard({
+  question,
+  questionIndex,
+  total,
+  selectedOption,
+  onSelect,
+  onSubmit,
+  onPrevious,
+  onNext,
+  canSubmit,
+}) {
   return (
     <SectionCard>
-      <p className="text-sm font-extrabold text-muted">Question 1 of 5</p>
-      <h2 className="mt-3 text-2xl font-extrabold leading-tight text-ink">{quizQuestion.title}</h2>
+      <p className="text-sm font-extrabold text-muted">Question {questionIndex + 1} of {total}</p>
+      <h2 className="mt-3 text-2xl font-extrabold leading-tight text-ink">{question.prompt}</h2>
 
       <div className="mt-6 space-y-3">
-        {quizQuestion.options.map((option, index) => {
+        {(question.options || []).map((option, index) => {
           const selected = selectedOption === index;
           return (
             <button
-              key={option}
+              key={`${option}-${index}`}
               type="button"
               onClick={() => onSelect(index)}
               className={cn(
@@ -40,16 +49,16 @@ export function QuizQuestionCard({ selectedOption, onSelect, onSubmit }) {
       </div>
 
       <div className="mt-7 flex flex-wrap justify-between gap-3">
-        <Button variant="outline">
+        <Button variant="outline" onClick={onPrevious} disabled={questionIndex === 0}>
           <ArrowLeft size={17} />
           Previous
         </Button>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline">
+          <Button variant="outline" onClick={onNext} disabled={questionIndex === total - 1}>
             Next
             <ArrowRight size={17} />
           </Button>
-          <Button onClick={onSubmit}>
+          <Button onClick={onSubmit} disabled={!canSubmit}>
             <Send size={17} />
             Submit Quiz
           </Button>

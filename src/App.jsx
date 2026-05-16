@@ -1,133 +1,200 @@
-import { useMemo, useState } from "react";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import { AppShell } from "./components/layout/AppShell";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { LearningDataProvider, useLearningData } from "./contexts/LearningDataContext";
+import { pathByNavId } from "./lib/navItems";
 import { AskAIPage, AskAIRightPanel } from "./pages/AskAIPage";
 import { CourseDetailsPage, CourseDetailsRightPanel } from "./pages/CourseDetailsPage";
 import { CreateCoursePage, CreateCourseRightPanel } from "./pages/CreateCoursePage";
 import { DashboardPage, DashboardRightPanel } from "./pages/DashboardPage";
+import { LoginPage } from "./pages/LoginPage";
 import { ModuleLessonPage, ModuleLessonRightPanel } from "./pages/ModuleLessonPage";
 import { MyCoursesPage } from "./pages/MyCoursesPage";
 import { ProgressRightPanel, ProgressTrackingPage } from "./pages/ProgressTrackingPage";
 import { QuizPage, QuizRightPanel } from "./pages/QuizPage";
 import { QuizResultPage } from "./pages/QuizResultPage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { SetupPage } from "./pages/SetupPage";
 import { StudyPlanPage, StudyPlanRightPanel } from "./pages/StudyPlanPage";
 
-const navAlias = {
-  "course-details": "courses",
-  module: "courses",
-  progress: "courses",
-  "quiz-result": "quiz",
-};
+function LoadingScreen() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-shell px-4 text-ink">
+      <div className="rounded-[28px] bg-white p-7 text-center shadow-soft">
+        <p className="text-lg font-extrabold text-navy">Loading CorAI...</p>
+        <p className="mt-2 text-sm font-semibold text-muted">Preparing your learning workspace.</p>
+      </div>
+    </main>
+  );
+}
 
-export default function App() {
-  const [page, setPage] = useState("dashboard");
-  const [selectedQuizOption, setSelectedQuizOption] = useState(null);
+function ShellRoute({ activePage, rightPanel, children }) {
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
 
-  const goTo = (nextPage) => {
-    if (nextPage === "quiz") {
-      setSelectedQuizOption(null);
-    }
-    setPage(nextPage);
-  };
-
-  const activeNav = navAlias[page] ?? page;
-
-  const screen = useMemo(() => {
-    const commonActions = {
-      onCreate: () => goTo("create"),
-      onCourseOpen: () => goTo("course-details"),
-      onDetails: () => goTo("course-details"),
-      onContinue: () => goTo("module"),
-      onModuleOpen: () => goTo("module"),
-      onQuizOpen: () => goTo("quiz"),
-      onProgress: () => goTo("progress"),
-    };
-
-    switch (page) {
-      case "create":
-        return {
-          content: <CreateCoursePage onGenerated={() => goTo("course-details")} />,
-          rightPanel: <CreateCourseRightPanel />,
-        };
-      case "courses":
-        return {
-          content: (
-            <MyCoursesPage
-              onCreate={commonActions.onCreate}
-              onDetails={commonActions.onDetails}
-              onContinue={commonActions.onContinue}
-            />
-          ),
-        };
-      case "course-details":
-        return {
-          content: <CourseDetailsPage onContinue={commonActions.onContinue} onModuleOpen={commonActions.onModuleOpen} />,
-          rightPanel: <CourseDetailsRightPanel onProgress={commonActions.onProgress} />,
-        };
-      case "module":
-        return {
-          content: <ModuleLessonPage />,
-          rightPanel: <ModuleLessonRightPanel onQuizOpen={commonActions.onQuizOpen} />,
-        };
-      case "quiz":
-        return {
-          content: (
-            <QuizPage
-              selectedOption={selectedQuizOption}
-              onSelect={setSelectedQuizOption}
-              onSubmit={() => goTo("quiz-result")}
-            />
-          ),
-          rightPanel: <QuizRightPanel answered={selectedQuizOption === null ? 3 : 4} />,
-        };
-      case "quiz-result":
-        return {
-          content: (
-            <QuizResultPage
-              onReview={commonActions.onModuleOpen}
-              onRetake={commonActions.onQuizOpen}
-              onContinue={commonActions.onCourseOpen}
-            />
-          ),
-        };
-      case "progress":
-        return {
-          content: <ProgressTrackingPage />,
-          rightPanel: <ProgressRightPanel />,
-        };
-      case "study-plan":
-        return {
-          content: <StudyPlanPage />,
-          rightPanel: <StudyPlanRightPanel />,
-        };
-      case "ask-ai":
-        return {
-          content: <AskAIPage />,
-          rightPanel: <AskAIRightPanel />,
-        };
-      case "settings":
-        return {
-          content: <SettingsPage />,
-        };
-      case "dashboard":
-      default:
-        return {
-          content: (
-            <DashboardPage
-              onCreate={commonActions.onCreate}
-              onCourseOpen={commonActions.onCourseOpen}
-              onModuleOpen={commonActions.onModuleOpen}
-              onQuizOpen={commonActions.onQuizOpen}
-            />
-          ),
-          rightPanel: <DashboardRightPanel />,
-        };
-    }
-  }, [page, selectedQuizOption]);
+  function handleNavigate(pageId) {
+    navigate(pathByNavId[pageId] || "/");
+  }
 
   return (
-    <AppShell activePage={activeNav} onNavigate={goTo} rightPanel={screen.rightPanel}>
-      {screen.content}
+    <AppShell activePage={activePage} onNavigate={handleNavigate} rightPanel={rightPanel} user={user} onLogout={signOut}>
+      {children}
     </AppShell>
+  );
+}
+
+function AppRoutes() {
+  const { loading } = useLearningData();
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  return (
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <ShellRoute activePage="dashboard" rightPanel={<DashboardRightPanel />}>
+            <DashboardPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/create"
+        element={
+          <ShellRoute activePage="create" rightPanel={<CreateCourseRightPanel />}>
+            <CreateCoursePage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/courses"
+        element={
+          <ShellRoute activePage="courses">
+            <MyCoursesPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/courses/:courseId"
+        element={
+          <ShellRoute activePage="courses" rightPanel={<CourseDetailsRightPanel />}>
+            <CourseDetailsPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/courses/:courseId/modules/:moduleId"
+        element={
+          <ShellRoute activePage="courses" rightPanel={<ModuleLessonRightPanel />}>
+            <ModuleLessonPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/courses/:courseId/modules/:moduleId/quiz"
+        element={
+          <ShellRoute activePage="quiz" rightPanel={<QuizRightPanel />}>
+            <QuizPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/quiz"
+        element={
+          <ShellRoute activePage="quiz" rightPanel={<QuizRightPanel />}>
+            <QuizPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/quiz-result/:attemptId"
+        element={
+          <ShellRoute activePage="quiz">
+            <QuizResultPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/progress"
+        element={
+          <ShellRoute activePage="courses" rightPanel={<ProgressRightPanel />}>
+            <ProgressTrackingPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/progress/:courseId"
+        element={
+          <ShellRoute activePage="courses" rightPanel={<ProgressRightPanel />}>
+            <ProgressTrackingPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/study-plan"
+        element={
+          <ShellRoute activePage="study-plan" rightPanel={<StudyPlanRightPanel />}>
+            <StudyPlanPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/ask-ai"
+        element={
+          <ShellRoute activePage="ask-ai" rightPanel={<AskAIRightPanel />}>
+            <AskAIPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/ask-ai/:courseId"
+        element={
+          <ShellRoute activePage="ask-ai" rightPanel={<AskAIRightPanel />}>
+            <AskAIPage />
+          </ShellRoute>
+        }
+      />
+      <Route
+        path="/settings"
+        element={
+          <ShellRoute activePage="settings">
+            <SettingsPage />
+          </ShellRoute>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
+}
+
+function AuthenticatedApp() {
+  const { loading, user, configMissing } = useAuth();
+
+  if (configMissing) {
+    return <SetupPage />;
+  }
+
+  if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!user) {
+    return <LoginPage />;
+  }
+
+  return (
+    <LearningDataProvider>
+      <AppRoutes />
+    </LearningDataProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AuthenticatedApp />
+    </AuthProvider>
   );
 }

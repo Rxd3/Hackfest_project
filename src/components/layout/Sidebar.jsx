@@ -10,7 +10,7 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
-import { navItems } from "../../data/mockData";
+import { navItems } from "../../lib/navItems";
 import { cn } from "../../lib/classNames";
 
 const iconMap = {
@@ -23,7 +23,7 @@ const iconMap = {
   settings: Settings,
 };
 
-export function Sidebar({ activePage, onNavigate }) {
+export function Sidebar({ activePage, onNavigate, onLogout }) {
   return (
     <aside className="hidden w-[232px] shrink-0 flex-col border-r border-divider/80 px-5 py-7 lg:flex">
       <button
@@ -69,6 +69,7 @@ export function Sidebar({ activePage, onNavigate }) {
 
       <button
         type="button"
+        onClick={onLogout}
         className="focus-ring mt-8 flex min-h-12 items-center gap-3 rounded-2xl px-4 text-sm font-bold text-muted transition hover:bg-white hover:text-navy"
       >
         <LogOut size={19} />

@@ -1,7 +1,11 @@
 import { CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { TopicInputCard } from "../components/createCourse/TopicInputCard";
 import { UploadMaterialsCard } from "../components/createCourse/UploadMaterialsCard";
 import { PageHeader } from "../components/ui/PageHeader";
+import { useLearningData } from "../contexts/LearningDataContext";
+import { apiFetch, buildCourseFormData } from "../lib/apiClient";
 
 const steps = [
   "Upload or type a topic",
@@ -11,16 +15,59 @@ const steps = [
   "You track your progress",
 ];
 
-export function CreateCoursePage({ onGenerated }) {
+export function CreateCoursePage() {
+  const navigate = useNavigate();
+  const { refresh } = useLearningData();
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleGenerate(payload) {
+    setStatus("");
+    setError("");
+
+    if (!payload.topic && !payload.files?.length) {
+      setError("Add a topic or choose at least one material file.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await apiFetch("/api/generate-course", {
+        method: "POST",
+        body: buildCourseFormData(payload),
+      });
+      await refresh();
+      navigate(`/courses/${result.courseId}`);
+      if (result.fallback) {
+        setStatus(result.message);
+      }
+    } catch (generateError) {
+      setError(generateError.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Create a New Course"
         subtitle="Turn any material or topic into a structured learning path."
       />
+      <div className="mb-5 rounded-[22px] bg-peach px-5 py-4 text-sm font-bold leading-6 text-navy">
+        Demo privacy note: do not upload private or sensitive materials while using Gemini free tier.
+      </div>
+      {loading ? (
+        <p className="mb-5 rounded-[22px] bg-navy px-5 py-4 text-sm font-bold text-white">
+          Generating your course. This can take a little while for uploaded files.
+        </p>
+      ) : null}
+      {status ? <p className="mb-5 rounded-[22px] bg-lime px-5 py-4 text-sm font-bold text-navy">{status}</p> : null}
+      {error ? <p className="mb-5 rounded-[22px] bg-[#fff0ea] px-5 py-4 text-sm font-bold text-[#d44724]">{error}</p> : null}
       <div className="grid gap-5 2xl:grid-cols-2">
-        <UploadMaterialsCard onGenerate={onGenerated} />
-        <TopicInputCard onBuild={onGenerated} />
+        <UploadMaterialsCard onGenerate={handleGenerate} />
+        <TopicInputCard onBuild={handleGenerate} />
       </div>
     </div>
   );
@@ -42,7 +89,7 @@ export function CreateCourseRightPanel() {
       </div>
       <div className="mt-6 rounded-[20px] bg-lime p-4 text-navy">
         <CheckCircle2 size={22} />
-        <p className="mt-3 text-sm font-extrabold leading-5">Static demo today, API-ready structure tomorrow.</p>
+        <p className="mt-3 text-sm font-extrabold leading-5">Real course generation is powered by Supabase and Gemini.</p>
       </div>
     </section>
   );

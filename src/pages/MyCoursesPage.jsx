@@ -1,9 +1,10 @@
 import { CalendarClock, Search } from "lucide-react";
 import { useMemo, useState } from "react";
-import { courses } from "../data/mockData";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { PageHeader } from "../components/ui/PageHeader";
 import { ProgressBar } from "../components/ui/ProgressBar";
+import { useLearningData } from "../contexts/LearningDataContext";
 import { cn } from "../lib/classNames";
 
 const filters = ["All", "In Progress", "Completed", "Needs Review"];
@@ -13,20 +14,35 @@ const cardStyles = {
   lime: "bg-lime",
 };
 
-export function MyCoursesPage({ onCreate, onDetails, onContinue }) {
+export function MyCoursesPage() {
+  const navigate = useNavigate();
+  const { courses, modules } = useLearningData();
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
 
   const visibleCourses = useMemo(() => {
-    return courses.filter((course) => course.title.toLowerCase().includes(query.toLowerCase()));
-  }, [query]);
+    return courses.filter((course) => {
+      const matchesSearch = course.title.toLowerCase().includes(query.toLowerCase());
+      if (filter === "All") return matchesSearch;
+      if (filter === "Completed") return matchesSearch && course.progress >= 100;
+      if (filter === "Needs Review") {
+        return matchesSearch && modules.some((module) => module.course_id === course.id && module.status === "needs review");
+      }
+      return matchesSearch && course.progress > 0 && course.progress < 100;
+    });
+  }, [courses, filter, modules, query]);
+
+  function continueCourse(courseId) {
+    const nextModule = modules.find((module) => module.course_id === courseId && module.progress < 100) || modules.find((module) => module.course_id === courseId);
+    navigate(nextModule ? `/courses/${courseId}/modules/${nextModule.id}` : `/courses/${courseId}`);
+  }
 
   return (
     <div>
       <PageHeader
         title="My Courses"
         subtitle="All your AI-generated learning paths in one place."
-        action={<Button onClick={onCreate}>Create New Course</Button>}
+        action={<Button onClick={() => navigate("/create")}>Create New Course</Button>}
       />
 
       <div className="mb-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -74,14 +90,19 @@ export function MyCoursesPage({ onCreate, onDetails, onContinue }) {
               Last studied: {course.lastStudied}
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Button variant="secondary" onClick={onContinue}>
+              <Button variant="secondary" onClick={() => continueCourse(course.id)}>
                 Continue
               </Button>
-              <Button onClick={onDetails}>View Details</Button>
+              <Button onClick={() => navigate(`/courses/${course.id}`)}>View Details</Button>
             </div>
           </article>
         ))}
       </div>
+      {!visibleCourses.length ? (
+        <div className="soft-card p-6 text-sm font-bold text-muted">
+          No courses found. Create your first course from a topic or uploaded materials.
+        </div>
+      ) : null}
     </div>
   );
 }

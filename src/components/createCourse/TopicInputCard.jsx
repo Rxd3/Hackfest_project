@@ -5,6 +5,11 @@ import { CourseOptions } from "./CourseOptions";
 
 export function TopicInputCard({ onBuild }) {
   const [topic, setTopic] = useState("");
+  const [options, setOptions] = useState({
+    level: "Beginner",
+    duration: "1 Month",
+    goal: "Full Course",
+  });
 
   return (
     <section className="soft-card p-5 sm:p-6">
@@ -29,10 +34,10 @@ export function TopicInputCard({ onBuild }) {
       </label>
 
       <div className="mt-6">
-        <CourseOptions />
+        <CourseOptions value={options} onChange={setOptions} />
       </div>
 
-      <Button className="mt-7 w-full" onClick={onBuild}>
+      <Button className="mt-7 w-full" onClick={() => onBuild({ topic, files: [], ...options })}>
         Build My Course
       </Button>
     </section>

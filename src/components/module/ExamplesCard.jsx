@@ -1,12 +1,17 @@
 import { SectionCard } from "../ui/SectionCard";
 
-export function ExamplesCard() {
+export function ExamplesCard({ examples = [] }) {
   return (
     <SectionCard>
       <h2 className="text-xl font-extrabold text-ink">Examples</h2>
-      <p className="mt-4 rounded-[20px] bg-gray-50 p-4 text-sm font-semibold leading-6 text-muted">
-        192.168.1.10 is a private IPv4 address commonly used inside local networks.
-      </p>
+      <div className="mt-4 space-y-3">
+        {examples.map((example) => (
+          <p key={example} className="rounded-[20px] bg-gray-50 p-4 text-sm font-semibold leading-6 text-muted">
+            {example}
+          </p>
+        ))}
+        {!examples.length ? <p className="text-sm font-semibold text-muted">No examples generated.</p> : null}
+      </div>
     </SectionCard>
   );
 }

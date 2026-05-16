@@ -1,6 +1,8 @@
 import { Bell, Mail, Search } from "lucide-react";
 
-export function TopBar() {
+export function TopBar({ user }) {
+  const initials = getInitials(user);
+
   return (
     <header className="mb-7 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
       <label className="focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-navy flex min-h-12 w-full items-center gap-3 rounded-2xl bg-white px-4 shadow-card xl:max-w-xl">
@@ -32,9 +34,18 @@ export function TopBar() {
           aria-label="Profile"
           className="focus-ring flex h-12 w-12 items-center justify-center rounded-full bg-navy text-sm font-extrabold text-white shadow-card"
         >
-          LU
+          {initials}
         </button>
       </div>
     </header>
   );
+}
+
+function getInitials(user) {
+  const name = user?.user_metadata?.full_name || user?.email || "CO";
+  const parts = name.split(/[ @._-]/).filter(Boolean);
+  return parts
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
 }

@@ -1,8 +1,7 @@
-import { computerNetworkModules } from "../../data/mockData";
 import { StatusPill } from "../ui/StatusPill";
 import { SectionCard } from "../ui/SectionCard";
 
-export function ProgressTable() {
+export function ProgressTable({ modules = [] }) {
   return (
     <SectionCard>
       <h2 className="text-xl font-extrabold text-ink">Course Progress</h2>
@@ -16,7 +15,7 @@ export function ProgressTable() {
             </tr>
           </thead>
           <tbody>
-            {computerNetworkModules.map((module) => (
+            {modules.map((module) => (
               <tr key={module.id} className="bg-gray-50 text-sm font-bold text-ink">
                 <td className="rounded-l-2xl px-4 py-4">{module.title}</td>
                 <td className="px-4 py-4">

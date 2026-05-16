@@ -1,8 +1,6 @@
 import { SectionCard } from "../ui/SectionCard";
 
-const concepts = ["IPv4", "Subnet Mask", "Gateway", "Private IP", "Public IP"];
-
-export function KeyConceptsCard() {
+export function KeyConceptsCard({ concepts = [] }) {
   return (
     <SectionCard>
       <h2 className="text-xl font-extrabold text-ink">Key Concepts</h2>
@@ -12,6 +10,7 @@ export function KeyConceptsCard() {
             {concept}
           </span>
         ))}
+        {!concepts.length ? <span className="text-sm font-bold text-muted">No key concepts generated.</span> : null}
       </div>
     </SectionCard>
   );

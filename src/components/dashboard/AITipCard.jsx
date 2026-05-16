@@ -1,6 +1,6 @@
 import { Sparkles } from "lucide-react";
 
-export function AITipCard() {
+export function AITipCard({ tip }) {
   return (
     <section className="soft-card p-5">
       <div className="flex items-center gap-3">
@@ -9,9 +9,7 @@ export function AITipCard() {
         </span>
         <h2 className="text-lg font-extrabold text-ink">AI Tip</h2>
       </div>
-      <p className="mt-4 text-sm font-semibold leading-6 text-muted">
-        You scored lower in subnetting. Review Module 2 before starting Routing.
-      </p>
+      <p className="mt-4 text-sm font-semibold leading-6 text-muted">{tip}</p>
     </section>
   );
 }

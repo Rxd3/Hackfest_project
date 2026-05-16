@@ -1,6 +1,6 @@
 import { Menu, Search, X } from "lucide-react";
 import { useState } from "react";
-import { navItems } from "../../data/mockData";
+import { navItems } from "../../lib/navItems";
 import { cn } from "../../lib/classNames";
 import { Button } from "../ui/Button";
 

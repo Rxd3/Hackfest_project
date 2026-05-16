@@ -1,14 +1,13 @@
 import { FileUp, Plus } from "lucide-react";
-import { courses } from "../../data/mockData";
 import { Button } from "../ui/Button";
 import { CourseCard } from "./CourseCard";
 
-export function HeroProgress({ onCreate, onCourseOpen }) {
+export function HeroProgress({ courses, onCreate, onCourseOpen, userName = "there" }) {
   return (
     <section className="overflow-hidden rounded-[28px] bg-navy p-5 text-white shadow-soft sm:p-7">
       <div className="grid gap-7 xl:grid-cols-[0.9fr_1.1fr] xl:items-center">
         <div className="max-w-xl">
-          <p className="text-lg font-bold text-white/80">Hi, Lubana!</p>
+          <p className="text-lg font-bold text-white/80">Hi, {userName}!</p>
           <h1 className="mt-3 max-w-lg text-3xl font-extrabold leading-tight tracking-normal sm:text-4xl">
             What would you like to learn today?
           </h1>
@@ -28,9 +27,14 @@ export function HeroProgress({ onCreate, onCourseOpen }) {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
-          {courses.map((course) => (
+          {courses.slice(0, 3).map((course) => (
             <CourseCard key={course.id} course={course} compact onOpen={() => onCourseOpen(course.id)} />
           ))}
+          {!courses.length ? (
+            <div className="rounded-[24px] bg-white/10 p-5 text-sm font-bold leading-6 text-white/70">
+              Your generated courses will appear here.
+            </div>
+          ) : null}
         </div>
       </div>
     </section>

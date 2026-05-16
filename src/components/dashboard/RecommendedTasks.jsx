@@ -1,23 +1,21 @@
 import { MoreHorizontal, PlayCircle, RotateCcw, Trophy } from "lucide-react";
-import { recommendedTasks } from "../../data/mockData";
 
 const icons = [Trophy, PlayCircle, RotateCcw];
 
-export function RecommendedTasks({ onQuiz, onModule }) {
+export function RecommendedTasks({ tasks, onTask }) {
   return (
     <section className="soft-card p-5 sm:p-6">
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-xl font-extrabold text-ink">AI Recommended Tasks</h2>
       </div>
       <div className="space-y-3">
-        {recommendedTasks.map((task, index) => {
+        {tasks.map((task, index) => {
           const Icon = icons[index] ?? Trophy;
-          const action = index === 0 ? onQuiz : index === 1 ? onModule : onModule;
           return (
             <button
               key={`${task.type}-${task.title}`}
               type="button"
-              onClick={action}
+              onClick={() => onTask(task)}
               className="focus-ring grid w-full grid-cols-[auto_1fr_auto] items-center gap-4 rounded-[20px] bg-gray-50 p-4 text-left transition hover:bg-white hover:shadow-card"
             >
               <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${task.color} text-navy`}>
@@ -38,6 +36,11 @@ export function RecommendedTasks({ onQuiz, onModule }) {
             </button>
           );
         })}
+        {!tasks.length ? (
+          <p className="rounded-[20px] bg-gray-50 p-4 text-sm font-bold text-muted">
+            Generate a course and complete a quiz to unlock recommendations.
+          </p>
+        ) : null}
       </div>
     </section>
   );

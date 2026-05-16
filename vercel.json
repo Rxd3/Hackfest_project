@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "api/generate-course.js": {
+      "maxDuration": 60
+    },
+    "api/ask.js": {
+      "maxDuration": 30
+    },
+    "api/videos.js": {
+      "maxDuration": 15
+    }
+  }
+}

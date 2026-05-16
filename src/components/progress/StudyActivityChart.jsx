@@ -1,8 +1,7 @@
-import { activityBars } from "../../data/mockData";
 import { SectionCard } from "../ui/SectionCard";
 
-export function StudyActivityChart() {
-  const max = Math.max(...activityBars.map((item) => item.hours));
+export function StudyActivityChart({ activityBars = [] }) {
+  const max = Math.max(1, ...activityBars.map((item) => item.hours));
 
   return (
     <SectionCard>
