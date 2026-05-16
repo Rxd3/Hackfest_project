@@ -28,12 +28,12 @@ export function LoginPage() {
     setLoading(false);
 
     if (error) {
-      setStatus(error.message);
+      setStatus(formatAuthError(error.message));
       return;
     }
 
     if (mode === "signup") {
-      setStatus("Check your email to confirm your account.");
+      setStatus("Account created. If email confirmation is enabled, check your email; otherwise sign in now.");
     }
   }
 
@@ -45,7 +45,7 @@ export function LoginPage() {
     });
 
     if (error) {
-      setStatus(error.message);
+      setStatus(formatAuthError(error.message));
     }
   }
 
@@ -133,4 +133,18 @@ export function LoginPage() {
       </section>
     </main>
   );
+}
+
+function formatAuthError(message) {
+  const lowerMessage = message.toLowerCase();
+
+  if (lowerMessage.includes("rate limit") || lowerMessage.includes("email rate limit")) {
+    return "Supabase email limit reached. For local demos, disable Confirm Email in Supabase Auth or use Google login. For production, configure Custom SMTP.";
+  }
+
+  if (lowerMessage.includes("email not confirmed")) {
+    return "This account needs email confirmation. For local demos, disable Confirm Email in Supabase Auth or use Google login.";
+  }
+
+  return message;
 }

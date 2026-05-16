@@ -25,6 +25,16 @@ APP_ORIGIN=http://localhost:5173
 
 Add the same values in Vercel Project Settings.
 
+### Avoid Supabase email rate limits while testing
+
+Supabase's built-in email sender is only for demos and is limited to 2 auth emails per hour. If signup shows `email rate limit exceeded`, choose one of these:
+
+1. Fast local demo: Supabase Dashboard -> Authentication -> Sign In / Providers -> Email -> turn **Confirm Email** off.
+2. Better demo: configure Google Auth and use **Continue with Google**.
+3. Production: Supabase Dashboard -> Authentication -> SMTP Settings / Custom SMTP -> add Resend, SendGrid, Postmark, Brevo, or another SMTP provider, then adjust Auth rate limits.
+
+After changing Auth settings, refresh the app and try again. You may need to wait until the old rate limit window resets if you keep email confirmation enabled.
+
 ## 3. Local Development
 
 Use Vite for frontend-only checks. This mode does not run `/api/*`, so course generation and Ask CorAI will return 404:
