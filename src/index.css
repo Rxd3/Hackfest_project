@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    background: #aeb9d1;
+    color: #111827;
+    font-family: Inter, Manrope, "Plus Jakarta Sans", system-ui, sans-serif;
+  }
+
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .focus-ring {
+    @apply focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy;
+  }
+
+  .page-title {
+    @apply text-2xl font-extrabold tracking-normal text-ink sm:text-3xl;
+  }
+
+  .page-subtitle {
+    @apply mt-2 max-w-2xl text-sm font-medium leading-6 text-muted;
+  }
+
+  .soft-card {
+    @apply rounded-[24px] bg-white shadow-card;
+  }
+}
