@@ -11,10 +11,11 @@ export default async function handler(req, res) {
   try {
     const { supabase, user } = await requireUser(req);
     const payload = await readJson(req);
-    const fileContexts = Array.isArray(payload.fileContexts) ? payload.fileContexts : [];
+    const rawFileContexts = Array.isArray(payload.fileContexts) ? payload.fileContexts : [];
+    const fileContexts = rawFileContexts.filter(hasReadableFileContext);
 
     if (!payload.topic && !fileContexts.length) {
-      return res.status(400).json({ error: "Add a topic or upload at least one material file." });
+      return res.status(400).json({ error: "Add a topic or upload at least one readable material file." });
     }
 
     const generated = await generateCourse({
@@ -70,6 +71,17 @@ export default async function handler(req, res) {
   } catch (error) {
     return res.status(error.status || 500).json({ error: friendlyGenerationError(error.message) });
   }
+}
+
+function hasReadableFileContext(file) {
+  const chunkText = Array.isArray(file?.chunks)
+    ? file.chunks.map((chunk) => chunk?.text || "").join("\n")
+    : "";
+  const pageText = Array.isArray(file?.pages)
+    ? file.pages.map((page) => page?.text || "").join("\n")
+    : "";
+  const text = `${file?.text || ""}\n${chunkText}\n${pageText}`.replace(/\s+/g, "");
+  return text.length >= 40;
 }
 
 async function insertOrThrow(supabase, table, rows) {

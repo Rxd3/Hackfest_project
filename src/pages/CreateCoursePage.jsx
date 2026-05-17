@@ -1,11 +1,18 @@
-import { BookOpenCheck, CheckCircle2, Circle, FileText, ListChecks, Sparkles, UploadCloud, Youtube } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { AlertCircle, BookOpenCheck, CheckCircle2, Circle, FileText, ListChecks, Loader2, Sparkles, UploadCloud, Youtube } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CourseOptions } from "../components/createCourse/CourseOptions";
 import { Button } from "../components/ui/Button";
 import { PageHeader } from "../components/ui/PageHeader";
 import { useLearningData } from "../contexts/LearningDataContext";
 import { cn } from "../lib/classNames";
+import {
+  ACCEPTED_MATERIAL_FILE_TYPES,
+  extractLocalFileContext,
+  formatFileSize,
+  getMaterialFileExtension,
+  materialTypeLabel,
+} from "../lib/materialFiles";
 
 const sourceTabs = [
   { id: "upload", label: "Upload Materials", Icon: UploadCloud },
@@ -13,43 +20,51 @@ const sourceTabs = [
 ];
 
 const helpSteps = [
-  "Choose materials or a topic.",
+  "Choose PDF materials or a topic.",
   "Set the level, duration, and goal.",
   "CorAI creates lectures, videos, practice, and quizzes.",
 ];
 
-const generationSteps = [
-  {
-    title: "Analyzing your topic...",
-    detail: "Reading your prompt and any uploaded study materials.",
-    Icon: Sparkles,
-  },
-  {
-    title: "Building your study plan...",
-    detail: "Sequencing lessons into a clear learning path.",
-    Icon: ListChecks,
-  },
-  {
-    title: "Creating lessons...",
-    detail: "Writing explanations, examples, and practice tasks.",
-    Icon: BookOpenCheck,
-  },
-  {
-    title: "Preparing quizzes...",
-    detail: "Creating checks for understanding and weak-topic signals.",
-    Icon: CheckCircle2,
-  },
-  {
-    title: "Finding lecture videos...",
-    detail: "Searching YouTube and attaching recommended videos to each lecture.",
-    Icon: Youtube,
-  },
-  {
-    title: "Finalizing your course...",
-    detail: "Saving your course, videos, schedule, and progress structure.",
-    Icon: UploadCloud,
-  },
-];
+function getGenerationSteps({ hasFiles, hasPdf }) {
+  const materialName = hasPdf ? "your PDF" : "your materials";
+  return [
+    {
+      title: hasFiles ? `Uploading ${materialName}...` : "Analyzing your topic...",
+      detail: hasFiles ? "Preparing the extracted material for course generation." : "Reading your prompt and selected course settings.",
+      Icon: UploadCloud,
+    },
+    {
+      title: hasPdf ? "Reading PDF pages..." : hasFiles ? "Reading uploaded materials..." : "Extracting key topics...",
+      detail: hasPdf ? "Preserving page order and source references from the uploaded PDF." : "Identifying the most useful concepts for the course.",
+      Icon: FileText,
+    },
+    {
+      title: "Extracting key topics...",
+      detail: "Finding chapters, sections, examples, formulas, and exercises to shape the course.",
+      Icon: Sparkles,
+    },
+    {
+      title: "Building your study plan...",
+      detail: "Sequencing lessons and review checkpoints from the same generated plan.",
+      Icon: ListChecks,
+    },
+    {
+      title: hasPdf ? "Creating lessons from your PDF..." : "Creating lessons...",
+      detail: "Writing explanations, examples, and practice tasks that respect your settings.",
+      Icon: BookOpenCheck,
+    },
+    {
+      title: "Preparing quizzes...",
+      detail: "Creating questions from the selected material, level, duration, and goal.",
+      Icon: CheckCircle2,
+    },
+    {
+      title: "Finalizing your course...",
+      detail: "Finding videos, saving the schedule, and preparing your course workspace.",
+      Icon: Youtube,
+    },
+  ];
+}
 
 export function CreateCoursePage() {
   const navigate = useNavigate();
@@ -57,7 +72,9 @@ export function CreateCoursePage() {
   const inputRef = useRef(null);
   const [activeTab, setActiveTab] = useState("upload");
   const [topic, setTopic] = useState("");
-  const [files, setFiles] = useState([]);
+  const [materialItems, setMaterialItems] = useState([]);
+  const [uploadMessage, setUploadMessage] = useState("");
+  const [uploadLoading, setUploadLoading] = useState(false);
   const [options, setOptions] = useState({
     level: "Beginner",
     duration: "1 Month",
@@ -67,6 +84,14 @@ export function CreateCoursePage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [generationStep, setGenerationStep] = useState(0);
+  const readyMaterialItems = useMemo(() => materialItems.filter((item) => item.status === "ready" && item.context), [materialItems]);
+  const readyFiles = useMemo(() => readyMaterialItems.map((item) => item.file), [readyMaterialItems]);
+  const readyFileContexts = useMemo(() => readyMaterialItems.map((item) => item.context), [readyMaterialItems]);
+  const hasReadyPdf = readyFileContexts.some((file) => file.extension === "pdf" || file.fileType === "PDF");
+  const generationSteps = useMemo(
+    () => getGenerationSteps({ hasFiles: activeTab === "upload" && readyFiles.length > 0, hasPdf: hasReadyPdf }),
+    [activeTab, hasReadyPdf, readyFiles.length],
+  );
 
   useEffect(() => {
     if (!loading) {
@@ -79,23 +104,97 @@ export function CreateCoursePage() {
     }, 1800);
 
     return () => window.clearInterval(timer);
-  }, [loading]);
+  }, [generationSteps.length, loading]);
 
-  function handleFiles(nextFiles) {
-    setFiles(Array.from(nextFiles || []));
+  function updateMaterialItem(id, patch) {
+    setMaterialItems((current) => current.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  }
+
+  async function handleFiles(nextFiles) {
+    const selectedFiles = Array.from(nextFiles || []);
+    setStatus("");
+    setError("");
+    setUploadMessage("");
+
+    if (!selectedFiles.length) {
+      setMaterialItems([]);
+      return;
+    }
+
+    const queuedItems = selectedFiles.map((file, index) => ({
+      id: `${file.name}-${file.size}-${file.lastModified || Date.now()}-${index}`,
+      file,
+      name: file.name,
+      size: file.size,
+      fileType: materialTypeLabel(file),
+      extension: getMaterialFileExtension(file),
+      status: "queued",
+      message: "Waiting to read...",
+    }));
+
+    setMaterialItems(queuedItems);
+    setUploadLoading(true);
+
+    const completed = [];
+    for (const item of queuedItems) {
+      updateMaterialItem(item.id, { status: "reading", message: item.extension === "pdf" ? "Reading PDF pages..." : "Reading file content..." });
+      try {
+        const context = await extractLocalFileContext(item.file, {
+          onStatus: (message) => updateMaterialItem(item.id, { status: "reading", message }),
+        });
+        const readyMessage = context.extension === "pdf"
+          ? `PDF uploaded successfully${context.pageCount ? `, ${context.pageCount} page${context.pageCount === 1 ? "" : "s"} read` : ""}.`
+          : "File uploaded successfully.";
+        const readyItem = {
+          ...item,
+          status: "ready",
+          message: readyMessage,
+          context,
+          fileType: context.fileType || item.fileType,
+          extension: context.extension || item.extension,
+        };
+        completed.push(readyItem);
+        updateMaterialItem(item.id, readyItem);
+      } catch (fileError) {
+        const failedItem = {
+          ...item,
+          status: "error",
+          message: fileError.message || "This file could not be read.",
+        };
+        completed.push(failedItem);
+        updateMaterialItem(item.id, failedItem);
+      }
+    }
+
+    const readyCount = completed.filter((item) => item.status === "ready").length;
+    const rejected = completed.filter((item) => item.status === "error");
+    if (readyCount) {
+      setUploadMessage(`${readyCount} file${readyCount === 1 ? "" : "s"} uploaded and read successfully.`);
+    }
+    if (rejected.length) {
+      const rejectionText = rejected.map((item) => `${item.name}: ${item.message}`).join(" ");
+      setError(readyCount ? `${rejected.length} file${rejected.length === 1 ? "" : "s"} rejected. ${rejectionText}` : rejectionText);
+    }
+
+    setUploadLoading(false);
   }
 
   async function handleGenerate() {
     setStatus("");
     setError("");
 
+    if (uploadLoading) {
+      setError("Please wait until your files finish uploading and reading.");
+      return;
+    }
+
     const payload =
       activeTab === "upload"
-        ? { topic: "", files, ...options }
+        ? { topic: "", files: readyFiles, fileContexts: readyFileContexts, ...options }
         : { topic, files: [], ...options };
 
     if (!payload.topic && !payload.files?.length) {
-      setError("Add a topic or choose at least one material file.");
+      setError("Add a topic or choose at least one readable material file.");
       return;
     }
 
@@ -118,9 +217,10 @@ export function CreateCoursePage() {
         title="Create a New Course"
         subtitle="Turn any material or topic into a structured learning path."
       />
-      {loading ? <GenerationStatus step={generationStep} hasFiles={activeTab === "upload" && files.length > 0} /> : null}
+      {loading ? <GenerationStatus step={generationStep} steps={generationSteps} hasFiles={activeTab === "upload" && readyFiles.length > 0} /> : null}
       {status ? <p className="mb-5 rounded-[22px] bg-lime px-5 py-4 text-sm font-bold text-navy">{status}</p> : null}
       {error ? <p className="mb-5 rounded-[22px] bg-[#fff0ea] px-5 py-4 text-sm font-bold text-[#d44724]">{error}</p> : null}
+      {uploadMessage ? <p className="mb-5 rounded-[22px] bg-lime px-5 py-4 text-sm font-bold text-navy">{uploadMessage}</p> : null}
 
       <div className="grid w-full gap-6 2xl:grid-cols-[minmax(760px,1fr)_340px]">
         <section className="soft-card overflow-hidden">
@@ -154,9 +254,12 @@ export function CreateCoursePage() {
                   ref={inputRef}
                   type="file"
                   multiple
-                  accept=".docx,.pptx,.txt,.md,.markdown"
+                  accept={ACCEPTED_MATERIAL_FILE_TYPES}
                   className="hidden"
-                  onChange={(event) => handleFiles(event.target.files)}
+                  onChange={(event) => {
+                    handleFiles(event.target.files);
+                    event.target.value = "";
+                  }}
                 />
                 <button
                   type="button"
@@ -164,26 +267,28 @@ export function CreateCoursePage() {
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => {
                     event.preventDefault();
-                    if (loading) return;
+                    if (loading || uploadLoading) return;
                     handleFiles(event.dataTransfer.files);
                   }}
-                  disabled={loading}
+                  disabled={loading || uploadLoading}
                   className="focus-ring flex min-h-[300px] w-full flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-divider bg-gray-50 p-6 text-center transition hover:border-navy hover:bg-white"
                 >
                   <span className="flex h-16 w-16 items-center justify-center rounded-[24px] bg-lavender text-navy">
-                    <FileText size={28} />
+                    {uploadLoading ? <Loader2 size={28} className="animate-spin" /> : <FileText size={28} />}
                   </span>
                   <span className="mt-5 block text-lg font-extrabold text-ink">Drop your materials here</span>
                   <span className="mt-2 block text-sm font-bold text-muted">
-                    {files.length ? `${files.length} file${files.length === 1 ? "" : "s"} selected` : "or browse DOCX, PPTX, TXT, or Markdown files"}
+                    {uploadLoading
+                      ? "Reading uploaded materials..."
+                      : readyFiles.length
+                        ? `${readyFiles.length} readable file${readyFiles.length === 1 ? "" : "s"} selected`
+                        : "or browse PDF, DOCX, PPTX, TXT, or Markdown files"}
                   </span>
                 </button>
-                {files.length ? (
+                {materialItems.length ? (
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                    {files.map((file) => (
-                      <p key={`${file.name}-${file.size}`} className="truncate rounded-2xl bg-gray-50 px-4 py-3 text-xs font-bold text-muted">
-                        {file.name}
-                      </p>
+                    {materialItems.map((item) => (
+                      <MaterialFileRow key={item.id} item={item} />
                     ))}
                   </div>
                 ) : null}
@@ -207,8 +312,8 @@ export function CreateCoursePage() {
               <CourseOptions value={options} onChange={setOptions} />
             </div>
 
-            <Button className="mt-7 w-full" onClick={handleGenerate} disabled={loading}>
-              {loading ? generationSteps[generationStep].title : "Generate Course"}
+            <Button className="mt-7 w-full" onClick={handleGenerate} disabled={loading || uploadLoading}>
+              {uploadLoading ? "Reading uploaded materials..." : loading ? generationSteps[generationStep]?.title : "Generate Course"}
             </Button>
           </div>
         </section>
@@ -238,9 +343,41 @@ export function CreateCourseRightPanel() {
   return null;
 }
 
-function GenerationStatus({ step, hasFiles }) {
-  const progress = Math.round(((step + 1) / generationSteps.length) * 100);
-  const activeStep = generationSteps[step];
+function MaterialFileRow({ item }) {
+  const ready = item.status === "ready";
+  const reading = item.status === "reading" || item.status === "queued";
+  const Icon = ready ? CheckCircle2 : reading ? Loader2 : AlertCircle;
+  const statusClass = ready
+    ? "bg-lime text-navy"
+    : reading
+      ? "bg-lavender text-navy"
+      : "bg-[#fff0ea] text-[#d44724]";
+
+  return (
+    <div className="min-w-0 rounded-2xl bg-gray-50 px-4 py-3">
+      <div className="flex min-w-0 items-start gap-3">
+        <span className={cn("mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl", statusClass)}>
+          <Icon size={16} className={reading ? "animate-spin" : ""} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-extrabold text-ink">{item.name}</p>
+          <p className="mt-1 text-xs font-bold text-muted">
+            {formatFileSize(item.size)} • {item.fileType}
+            {item.context?.pageCount ? ` • ${item.context.pageCount} page${item.context.pageCount === 1 ? "" : "s"}` : ""}
+          </p>
+          <p className={cn("mt-1 text-xs font-bold", ready ? "text-navy" : item.status === "error" ? "text-[#d44724]" : "text-muted")}>
+            {item.message}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GenerationStatus({ step, steps, hasFiles }) {
+  const safeStep = Math.min(step, steps.length - 1);
+  const progress = Math.round(((safeStep + 1) / steps.length) * 100);
+  const activeStep = steps[safeStep];
   const ActiveIcon = activeStep.Icon;
 
   return (
@@ -272,10 +409,10 @@ function GenerationStatus({ step, hasFiles }) {
         </div>
       </div>
 
-      <div className="mt-5 grid gap-2 sm:grid-cols-5">
-        {generationSteps.map(({ title }, index) => {
-          const complete = index < step;
-          const active = index === step;
+      <div className="mt-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        {steps.map(({ title }, index) => {
+          const complete = index < safeStep;
+          const active = index === safeStep;
           return (
             <div
               key={title}

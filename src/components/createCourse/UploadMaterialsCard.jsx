@@ -1,5 +1,6 @@
 import { FileText, UploadCloud } from "lucide-react";
 import { useRef, useState } from "react";
+import { ACCEPTED_MATERIAL_FILE_TYPES } from "../../lib/materialFiles";
 import { Button } from "../ui/Button";
 import { CourseOptions } from "./CourseOptions";
 
@@ -24,7 +25,7 @@ export function UploadMaterialsCard({ onGenerate, disabled = false }) {
         </span>
         <div>
           <h2 className="text-xl font-extrabold text-ink">Upload Course Materials</h2>
-          <p className="mt-1 text-sm font-semibold text-muted">DOCX, PPTX, TXT, Markdown, slides, or notes</p>
+          <p className="mt-1 text-sm font-semibold text-muted">PDF, DOCX, PPTX, TXT, Markdown, slides, or notes</p>
         </div>
       </div>
 
@@ -32,7 +33,7 @@ export function UploadMaterialsCard({ onGenerate, disabled = false }) {
         ref={inputRef}
         type="file"
         multiple
-        accept=".docx,.pptx,.txt,.md,.markdown"
+        accept={ACCEPTED_MATERIAL_FILE_TYPES}
         className="hidden"
         onChange={handleFileChange}
       />

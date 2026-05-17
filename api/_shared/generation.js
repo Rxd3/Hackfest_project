@@ -7,6 +7,8 @@ const STOP_WORDS = new Set(["a", "an", "and", "are", "as", "at", "by", "course",
 const COURSE_LEVELS = new Set(["Beginner", "Intermediate", "Advanced"]);
 const STUDY_DURATIONS = new Set(["1 Week", "1 Month", "3 Months"]);
 const COURSE_GOALS = new Set(["Exam Preparation", "Full Course", "Quick Revision"]);
+const MATERIAL_PROMPT_CHAR_LIMIT = 56000;
+const MATERIAL_CHUNK_CHAR_LIMIT = 6000;
 
 const LEVEL_PROFILES = {
   Beginner: {
@@ -99,7 +101,7 @@ const GOAL_PROFILES = {
 };
 
 export async function generateCourse({ topic, fileContexts = [], level, duration, goal }) {
-  const materialText = fileContexts.map((file) => `File: ${file.name}\n${file.text || ""}`).join("\n\n").trim();
+  const materialText = buildMaterialText(fileContexts);
   const settings = resolveCourseSettings({ level, duration, goal });
 
   try {
@@ -174,7 +176,7 @@ export function makeCourseRows({ userId, course, payload, fileContexts = [] }) {
       kind: "file",
       file_name: file.name,
       storage_path: `${userId}/${courseId}/${sourceId}-${safeFileName(file.name)}`,
-      text_excerpt: String(file.text || "").slice(0, 2000),
+      text_excerpt: sourceTextExcerpt(file),
       created_at: now,
     };
   });
@@ -249,9 +251,124 @@ export function makeCourseRows({ userId, course, payload, fileContexts = [] }) {
   return { courseRow, sources, modules, lessons, quizzes, questions, studyPlan };
 }
 
+function buildMaterialText(fileContexts = []) {
+  const readableFiles = fileContexts.filter((file) => hasReadableMaterial(file));
+  const sections = [];
+  let remaining = MATERIAL_PROMPT_CHAR_LIMIT;
+
+  for (const file of readableFiles) {
+    if (remaining <= 0) break;
+    const section = buildMaterialFileSection(file, remaining);
+    if (!section) continue;
+    sections.push(section);
+    remaining -= section.length + 2;
+  }
+
+  if (readableFiles.length > sections.length) {
+    sections.push("[Some uploaded material was omitted safely because the combined text is very long.]");
+  }
+
+  return sections.join("\n\n").trim();
+}
+
+function buildMaterialFileSection(file, budget) {
+  const header = [
+    `File: ${file.name || "Uploaded material"}`,
+    file.fileType ? `Type: ${file.fileType}` : "",
+    file.pageCount ? `Pages: ${file.pageCount}` : "",
+  ].filter(Boolean).join("\n");
+  const chunks = normalizeMaterialChunks(file);
+  if (!chunks.length) return "";
+
+  let section = `${header}\n`;
+  for (const [index, chunk] of chunks.entries()) {
+    const chunkHeader = `Source chunk ${index + 1}${chunk.pageRange ? ` (${chunk.pageRange})` : ""}:`;
+    const chunkText = `${chunkHeader}\n${chunk.text}`.trim();
+    if (section.length + chunkText.length + 2 > budget) {
+      break;
+    }
+    section = `${section}\n${chunkText}\n`;
+  }
+
+  if (section.trim() === header.trim()) {
+    const firstChunk = chunks[0];
+    const available = Math.max(0, budget - header.length - 40);
+    if (!available) return "";
+    section = `${header}\nSource chunk 1${firstChunk.pageRange ? ` (${firstChunk.pageRange})` : ""}:\n${String(firstChunk.text).slice(0, available).trim()}`;
+  }
+
+  if (file.truncated) {
+    section = `${section.trim()}\n[This file was truncated safely after extraction because it is very long.]`;
+  }
+
+  return section.trim();
+}
+
+function normalizeMaterialChunks(file) {
+  const providedChunks = Array.isArray(file.chunks)
+    ? file.chunks.map((chunk) => ({
+      text: cleanMaterialText(chunk?.text || ""),
+      pageRange: cleanSearchText(chunk?.pageRange || ""),
+    })).filter((chunk) => chunk.text)
+    : [];
+  if (providedChunks.length) return providedChunks;
+
+  const pages = Array.isArray(file.pages)
+    ? file.pages.map((page) => ({
+      text: cleanMaterialText(page?.text || ""),
+      pageRange: page?.page ? `Page ${page.page}` : "",
+    })).filter((page) => page.text)
+    : [];
+  if (pages.length) return pages;
+
+  return chunkMaterialText(cleanMaterialText(file.text || ""));
+}
+
+function chunkMaterialText(textValue) {
+  if (!textValue) return [];
+  const chunks = [];
+  const pageMatches = [...textValue.matchAll(/^Page\s+(\d+):\n([\s\S]*?)(?=^Page\s+\d+:\n|\s*$)/gm)];
+  if (pageMatches.length) {
+    return pageMatches.map((match) => ({
+      text: cleanMaterialText(`Page ${match[1]}:\n${match[2]}`),
+      pageRange: `Page ${match[1]}`,
+    })).filter((chunk) => chunk.text);
+  }
+
+  const paragraphs = textValue.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
+  let current = "";
+  for (const paragraph of paragraphs.length ? paragraphs : [textValue]) {
+    if (current && current.length + paragraph.length + 2 > MATERIAL_CHUNK_CHAR_LIMIT) {
+      chunks.push({ text: current.trim() });
+      current = "";
+    }
+    current = `${current}\n\n${paragraph}`.trim();
+  }
+  if (current) chunks.push({ text: current.trim() });
+  return chunks;
+}
+
+function sourceTextExcerpt(file) {
+  return normalizeMaterialChunks(file).map((chunk) => chunk.text).join("\n\n").slice(0, 2000);
+}
+
+function hasReadableMaterial(file) {
+  return normalizeMaterialChunks(file).some((chunk) => cleanMaterialText(chunk.text).replace(/\s+/g, "").length >= 40);
+}
+
+function cleanMaterialText(value = "") {
+  return String(value)
+    .replace(/\u00a0/g, " ")
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/[ \t]*\n[ \t]*/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 async function generateGeminiCourse({ topic, materialText, settings }) {
   const source = materialText
-    ? `Use these study materials as the main source:\n${materialText.slice(0, 24000)}`
+    ? `Use these study materials as the main source. They may be safely chunked and labeled by file/page; preserve the source order when building the course:\n${materialText}`
     : `Build the course from this topic: ${topic}`;
 
   const prompt = `
@@ -317,6 +434,8 @@ Rules:
 - Exam Preparation plans must include high-yield exam topics, revision checkpoints, and exam-style questions.
 - Beginner courses must explain from zero and use easier language.
 - Advanced courses must include deeper technical details and harder exercises.
+- When uploaded materials include pages, chapters, sections, formulas, examples, or exercises, structure lessons around the actual material order.
+- Quizzes, practice, schedule, and video queries must reflect the uploaded material, not generic/static content.
 - videoSearchQuery must target only that lecture, not a full course.
 - videoSearchQuery must match the selected settings using this intent: ${settings.videoIntent}.
 - Do not use Shorts, full course, complete course, crash course, playlist, masterclass, bootcamp, or all-in-one in videoSearchQuery.

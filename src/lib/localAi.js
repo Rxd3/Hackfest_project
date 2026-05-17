@@ -1,3 +1,7 @@
+import { extractLocalFileContext } from "./materialFiles";
+
+export { extractLocalFileContext };
+
 const VIDEO_SEARCH_VERSION = "module-video-v4-settings";
 const MIN_LESSON_VIDEO_SECONDS = 240;
 const MAX_LESSON_VIDEO_SECONDS = 1500;
@@ -249,45 +253,6 @@ async function generateGeminiText(prompt, json = false) {
   throw new Error("Gemini generation now runs through the server API after sign-in.");
 }
 
-export async function extractLocalFileContext(file) {
-  const extension = file.name.split(".").pop()?.toLowerCase();
-
-  if (["txt", "md", "markdown", "csv"].includes(extension)) {
-    return { name: file.name, text: await file.text() };
-  }
-
-  if (extension === "docx") {
-    const mammoth = await loadMammoth();
-    const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-    return { name: file.name, text: result.value || "" };
-  }
-
-  if (extension === "pptx") {
-    return { name: file.name, text: await extractPptxText(await file.arrayBuffer()) };
-  }
-
-  return {
-    name: file.name,
-    text: `Local browser mode cannot extract ${extension?.toUpperCase() || "this"} file text yet. Use the filename and topic as context for now.`,
-  };
-}
-
-async function extractPptxText(arrayBuffer) {
-  const JSZip = await loadJSZip();
-  const zip = await JSZip.loadAsync(arrayBuffer);
-  const slideEntries = Object.keys(zip.files)
-    .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
-    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-
-  const text = [];
-  for (const entry of slideEntries) {
-    const xml = await zip.files[entry].async("text");
-    text.push(...[...xml.matchAll(/<a:t>(.*?)<\/a:t>/g)].map((match) => decodeXml(match[1])));
-  }
-
-  return text.join(" ");
-}
-
 function fallbackCourse({ topic, materialText, level, duration, goal }) {
   const title = topic?.trim() || inferTitle(materialText) || "Generated Learning Path";
   const subject = inferCourseSubject(title, materialText);
@@ -531,16 +496,6 @@ function isWeakQuestionSet(questions, moduleTitle = "") {
 
 function hasGeminiKey() {
   return false;
-}
-
-async function loadMammoth() {
-  const module = await import("mammoth");
-  return module.default || module;
-}
-
-async function loadJSZip() {
-  const module = await import("jszip");
-  return module.default || module;
 }
 
 function hasYouTubeKey() {
@@ -873,8 +828,4 @@ function decodeHtml(value = "") {
   }
   textarea.innerHTML = value;
   return textarea.value;
-}
-
-function decodeXml(value) {
-  return value.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'");
 }

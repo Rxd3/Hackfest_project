@@ -176,7 +176,10 @@ export function LearningDataProvider({ children }) {
 
     try {
       const files = Array.from(payload.files || []);
-      const fileContexts = await Promise.all(files.map(extractLocalFileContext));
+      const suppliedFileContexts = Array.isArray(payload.fileContexts) ? payload.fileContexts : [];
+      const fileContexts = suppliedFileContexts.length
+        ? suppliedFileContexts
+        : await Promise.all(files.map(extractLocalFileContext));
       const result = await apiRequest("/api/courses/generate", {
         topic: payload.topic || "",
         level: payload.level,
@@ -185,8 +188,14 @@ export function LearningDataProvider({ children }) {
         fileContexts: fileContexts.map((file, index) => ({
           name: file.name,
           text: file.text,
-          size: files[index]?.size || 0,
-          type: files[index]?.type || "",
+          size: file.size || files[index]?.size || 0,
+          type: file.type || files[index]?.type || "",
+          fileType: file.fileType || "",
+          extension: file.extension || "",
+          pageCount: file.pageCount || null,
+          pages: Array.isArray(file.pages) ? file.pages : [],
+          chunks: Array.isArray(file.chunks) ? file.chunks : [],
+          truncated: Boolean(file.truncated),
         })),
       });
 
