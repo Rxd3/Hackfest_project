@@ -148,6 +148,15 @@ create table if not exists public.messages (
   created_at timestamptz not null default now()
 );
 
+alter table public.modules add column if not exists video_search_query text;
+alter table public.modules add column if not exists video_keywords jsonb not null default '[]'::jsonb;
+
+alter table public.videos add column if not exists video_id text;
+alter table public.videos add column if not exists search_query text;
+alter table public.videos add column if not exists query_signature text;
+alter table public.videos add column if not exists match_score numeric not null default 0;
+alter table public.videos add column if not exists duration_seconds integer not null default 0;
+
 create index if not exists courses_user_created_idx on public.courses(user_id, created_at desc);
 create index if not exists modules_course_position_idx on public.modules(course_id, position);
 create index if not exists quizzes_module_idx on public.quizzes(module_id);
