@@ -1,0 +1,6 @@
+-- Baseline placeholder for the original CorAI MVP migration.
+--
+-- This migration version was applied to the linked Supabase project before the
+-- schema was consolidated into 20260517000000_initial_backend.sql. Supabase
+-- Preview requires every remote migration version to exist locally, so keep this
+-- file as a no-op instead of replaying the outdated MVP schema on fresh setups.
