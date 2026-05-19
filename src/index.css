@@ -3,6 +3,34 @@
 @tailwind utilities;
 
 @layer base {
+  :root {
+    --color-shell: 174 185 209;
+    --color-app: 243 243 244;
+    --color-navy: 38 37 64;
+    --color-navy-2: 37 36 63;
+    --color-ink: 17 24 39;
+    --color-muted: 107 114 128;
+    --color-divider: 218 221 227;
+    --color-lavender: 183 155 255;
+    --color-peach: 255 226 182;
+    --color-lime: 134 239 172;
+    --color-danger: 255 77 77;
+  }
+
+  .dark {
+    --color-shell: 2 6 23;
+    --color-app: 15 23 42;
+    --color-navy: 226 232 240;
+    --color-navy-2: 203 213 225;
+    --color-ink: 241 245 249;
+    --color-muted: 148 163 184;
+    --color-divider: 51 65 85;
+    --color-lavender: 196 181 253;
+    --color-peach: 253 186 116;
+    --color-lime: 74 222 128;
+    --color-danger: 248 113 113;
+  }
+
   * {
     box-sizing: border-box;
   }
@@ -10,8 +38,8 @@
   body {
     margin: 0;
     min-width: 320px;
-    background: #aeb9d1;
-    color: #111827;
+    background: rgb(var(--color-shell));
+    color: rgb(var(--color-ink));
     font-family: Inter, Manrope, "Plus Jakarta Sans", system-ui, sans-serif;
   }
 
@@ -37,5 +65,55 @@
 
   .soft-card {
     @apply rounded-[24px] bg-white shadow-card;
+  }
+}
+
+@layer utilities {
+  .dark .bg-white {
+    background-color: rgb(30 41 59 / var(--tw-bg-opacity, 1));
+  }
+
+  .dark .bg-gray-50 {
+    background-color: rgb(15 23 42 / var(--tw-bg-opacity, 1));
+  }
+
+  .dark .bg-gray-100 {
+    background-color: rgb(51 65 85 / var(--tw-bg-opacity, 1));
+  }
+
+  .dark .soft-card {
+    background-color: rgb(30 41 59 / 1);
+  }
+
+  .dark .bg-navy {
+    background-color: rgb(51 65 85 / var(--tw-bg-opacity, 1));
+  }
+
+  .dark .hover\:bg-white:hover {
+    background-color: rgb(30 41 59 / var(--tw-bg-opacity, 1));
+  }
+
+  .dark .hover\:bg-gray-50:hover {
+    background-color: rgb(15 23 42 / var(--tw-bg-opacity, 1));
+  }
+
+  .dark .bg-white.text-navy,
+  .dark .hover\:text-navy:hover {
+    color: rgb(241 245 249 / var(--tw-text-opacity, 1));
+  }
+
+  .dark .bg-lime.text-navy,
+  .dark .bg-peach.text-navy,
+  .dark .bg-lavender.text-navy {
+    color: rgb(23 28 47 / var(--tw-text-opacity, 1));
+  }
+
+  .dark .shadow-soft,
+  .dark .shadow-card {
+    box-shadow: 0 18px 55px rgb(0 0 0 / 0.35);
+  }
+
+  .dark .shadow-card {
+    box-shadow: 0 12px 30px rgb(0 0 0 / 0.28);
   }
 }

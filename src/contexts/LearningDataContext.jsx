@@ -18,6 +18,8 @@ import { finishStoredStudySession, getStudyTimeSummary, startStoredStudySession 
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 
 const LearningDataContext = createContext(null);
+const THEME_STORAGE_KEY = "corai-theme";
+const USERNAME_AUTH_DOMAIN = "users.corai.local";
 
 const emptyState = {
   courses: [],
@@ -40,6 +42,15 @@ export function LearningDataProvider({ children }) {
   const [studyTimeSummary, setStudyTimeSummary] = useState(getStudyTimeSummary(null));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [theme, setTheme] = useState(readStoredTheme);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+
+    document.documentElement.classList.toggle("dark", theme === "dark");
+    document.documentElement.style.colorScheme = theme === "dark" ? "dark" : "light";
+    window.localStorage?.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
 
   useEffect(() => {
     if (!supabase) {
@@ -132,11 +143,73 @@ export function LearningDataProvider({ children }) {
     if (googleError) throw googleError;
   }, []);
 
+  const signInWithPassword = useCallback(async ({ identifier, password }) => {
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const email = authEmailFromIdentifier(identifier);
+    const { error: passwordError } = await supabase.auth.signInWithPassword({ email, password });
+    if (passwordError) throw friendlyAuthError(passwordError);
+  }, []);
+
+  const signUpWithPassword = useCallback(async ({ username, password }) => {
+    if (!supabase) throw new Error("Supabase is not configured.");
+    const email = authEmailFromIdentifier(username);
+    const displayName = displayNameFromIdentifier(username);
+    const { data, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username: displayName,
+          full_name: displayName,
+        },
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    if (signUpError) throw friendlyAuthError(signUpError);
+
+    return { needsConfirmation: Boolean(data?.user && !data?.session) };
+  }, []);
+
+  const updateUsername = useCallback(async (nextUsername) => {
+    if (!supabase || !session?.user) throw new Error("Sign in again to update your username.");
+    const username = normalizeUsername(nextUsername);
+    const currentEmail = session.user.email || "";
+    const nextAuthEmail = currentEmail.endsWith(`@${USERNAME_AUTH_DOMAIN}`)
+      ? `${username}@${USERNAME_AUTH_DOMAIN}`
+      : null;
+    const { data, error: updateError } = await supabase.auth.updateUser({
+      ...(nextAuthEmail ? { email: nextAuthEmail } : {}),
+      data: {
+        ...(session.user.user_metadata || {}),
+        username,
+        full_name: username,
+      },
+    });
+    if (updateError) throw friendlyAuthError(updateError);
+    if (data?.user) {
+      setSession((current) => current ? { ...current, user: data.user } : current);
+    }
+    return data?.user;
+  }, [session]);
+
   const signOut = useCallback(async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
     setState(emptyState);
     setStudyTimeSummary(getStudyTimeSummary(null));
+  }, []);
+
+  const deleteAccount = useCallback(async () => {
+    if (!supabase || !session?.user) throw new Error("Sign in again to delete your account.");
+    await apiRequest("/api/account/delete", {});
+    await supabase.auth.signOut();
+    setSession(null);
+    setState(emptyState);
+    setStudyTimeSummary(getStudyTimeSummary(null));
+  }, [session]);
+
+  const setThemePreference = useCallback((nextTheme) => {
+    setTheme(nextTheme === "dark" ? "dark" : "light");
   }, []);
 
   useEffect(() => {
@@ -352,8 +425,14 @@ export function LearningDataProvider({ children }) {
       weeklyStudyMinutes: studyTimeSummary.totalMinutes,
       weeklyStudyHours: studyTimeSummary.totalHours,
       refresh,
+      theme,
+      setThemePreference,
       signInWithGoogle,
+      signInWithPassword,
+      signUpWithPassword,
+      updateUsername,
       signOut,
+      deleteAccount,
       resetData: signOut,
       createCourse,
       startStudySession,
@@ -399,13 +478,19 @@ export function LearningDataProvider({ children }) {
     refresh,
     saveQuizAttempt,
     session,
+    theme,
+    setThemePreference,
+    signInWithPassword,
     signInWithGoogle,
+    signUpWithPassword,
     signOut,
     startStudySession,
     finishStudySession,
     state,
     studyTimeSummary,
+    updateUsername,
     updateModuleProgress,
+    deleteAccount,
   ]);
 
   return <LearningDataContext.Provider value={value}>{children}</LearningDataContext.Provider>;
@@ -481,4 +566,47 @@ function migrateState(state) {
 
 function id() {
   return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function readStoredTheme() {
+  if (typeof window === "undefined") return "light";
+  return window.localStorage?.getItem(THEME_STORAGE_KEY) === "dark" ? "dark" : "light";
+}
+
+function authEmailFromIdentifier(value) {
+  const identifier = String(value || "").trim();
+  if (!identifier) throw new Error("Enter a username or email.");
+  if (identifier.includes("@")) return identifier.toLowerCase();
+  return `${normalizeUsername(identifier)}@${USERNAME_AUTH_DOMAIN}`;
+}
+
+function displayNameFromIdentifier(value) {
+  const identifier = String(value || "").trim();
+  if (identifier.includes("@")) {
+    const localPart = identifier.split("@")[0].toLowerCase().replace(/[^a-z0-9_.-]/g, "");
+    return /^[a-z0-9][a-z0-9_.-]{2,23}$/.test(localPart) ? localPart : "learner";
+  }
+  return normalizeUsername(identifier);
+}
+
+function normalizeUsername(value) {
+  const username = String(value || "").trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9_.-]{2,23}$/.test(username)) {
+    throw new Error("Use 3-24 characters: letters, numbers, dot, dash, or underscore.");
+  }
+  return username;
+}
+
+function friendlyAuthError(error) {
+  const message = error?.message || "Authentication failed.";
+  if (/invalid login credentials/i.test(message)) {
+    return new Error("Check your username/email and password.");
+  }
+  if (/already registered|already exists|duplicate/i.test(message)) {
+    return new Error("An account with that username or email already exists.");
+  }
+  if (/password/i.test(message) && /six|6|short|weak/i.test(message)) {
+    return new Error("Use a password with at least 6 characters.");
+  }
+  return new Error(message);
 }

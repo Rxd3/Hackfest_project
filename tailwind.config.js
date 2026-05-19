@@ -1,20 +1,21 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: "class",
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
-        shell: "#AEB9D1",
-        app: "#F3F3F4",
-        navy: "#262540",
-        navy2: "#25243F",
-        ink: "#111827",
-        muted: "#6B7280",
-        divider: "#DADDE3",
-        lavender: "#B79BFF",
-        peach: "#FFE2B6",
-        lime: "#ECFF32",
-        danger: "#FF4D4D",
+        shell: "rgb(var(--color-shell) / <alpha-value>)",
+        app: "rgb(var(--color-app) / <alpha-value>)",
+        navy: "rgb(var(--color-navy) / <alpha-value>)",
+        navy2: "rgb(var(--color-navy-2) / <alpha-value>)",
+        ink: "rgb(var(--color-ink) / <alpha-value>)",
+        muted: "rgb(var(--color-muted) / <alpha-value>)",
+        divider: "rgb(var(--color-divider) / <alpha-value>)",
+        lavender: "rgb(var(--color-lavender) / <alpha-value>)",
+        peach: "rgb(var(--color-peach) / <alpha-value>)",
+        lime: "rgb(var(--color-lime) / <alpha-value>)",
+        danger: "rgb(var(--color-danger) / <alpha-value>)",
       },
       fontFamily: {
         sans: ["Inter", "Manrope", "Plus Jakarta Sans", "system-ui", "sans-serif"],

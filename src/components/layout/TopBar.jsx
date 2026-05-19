@@ -27,7 +27,7 @@ export function TopBar({ user }) {
 }
 
 function getInitials(user) {
-  const name = user?.user_metadata?.full_name || user?.email || "CO";
+  const name = user?.user_metadata?.username || user?.user_metadata?.full_name || user?.email || "CO";
   const parts = name.split(/[ @._-]/).filter(Boolean);
   return parts
     .slice(0, 2)

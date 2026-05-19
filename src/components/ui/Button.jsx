@@ -6,6 +6,7 @@ const variants = {
   peach: "bg-peach text-navy hover:bg-[#ffdba7]",
   ghost: "bg-transparent text-muted hover:bg-white/70 hover:text-navy",
   outline: "border border-divider bg-white text-navy hover:border-navy",
+  danger: "bg-danger text-white hover:bg-[#d63f3f]",
 };
 
 export function Button({ children, className, variant = "primary", type = "button", ...props }) {
